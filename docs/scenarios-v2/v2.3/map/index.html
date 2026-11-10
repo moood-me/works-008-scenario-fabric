@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сценарии v2.3 — десять игр</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --ink: #22201c; --dim: #7a746a; --line: #cfc8ba;
+    --card: #fffdf8; --open: #ffffff; --accent: #a4532b; --root: #2c3a47; --root-ink: #f6f4ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181a; --ink: #e8e4dc; --dim: #96918a; --line: #3d3f43;
+      --card: #202225; --open: #26292d; --accent: #e0946a; --root: #d9d2c4; --root-ink: #17181a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.55 Georgia, "Times New Roman", serif;
+  }
+  header { padding: 20px 28px 0; }
+  header h1 { font-size: 15px; font-weight: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 0 0 12px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  nav button {
+    font: inherit; font-size: 15px; color: var(--ink); background: none;
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px; cursor: pointer;
+  }
+  nav button:hover { border-color: var(--accent); }
+  nav button[aria-current="true"] { background: var(--root); color: var(--root-ink); border-color: var(--root); }
+
+  main { padding: 28px; overflow-x: auto; }
+  .tree { display: flex; align-items: flex-start; min-width: min-content; }
+
+  .root {
+    flex: 0 0 300px; background: var(--root); color: var(--root-ink);
+    border-radius: 14px; padding: 18px 20px; position: sticky; left: 0; top: 16px;
+  }
+  .root h2 { margin: 0 0 8px; font-size: 24px; line-height: 1.2; }
+  .root p { margin: 0 0 10px; }
+  .root .source { font-size: 14px; opacity: .75; margin: 0; }
+  .root a { color: inherit; font-size: 14px; opacity: .75; }
+
+  /* a column of sibling nodes hanging off their parent */
+  .kids { display: flex; flex-direction: column; gap: 10px; margin-left: 34px; position: relative; }
+  .kids::before { /* the trunk */
+    content: ""; position: absolute; left: -18px; top: 22px; bottom: 22px; border-left: 1px solid var(--line);
+  }
+  .node { display: flex; align-items: flex-start; position: relative; }
+  .node::before { /* the twig to this node */
+    content: ""; position: absolute; left: -18px; top: 22px; width: 18px; border-top: 1px solid var(--line);
+  }
+  .tree > .kids::after { /* the link from the root card to the trunk */
+    content: ""; position: absolute; left: -34px; top: 22px; width: 16px; border-top: 1px solid var(--line);
+  }
+  .node > .kids::after {
+    content: ""; position: absolute; left: -34px; top: 22px; width: 16px; border-top: 1px solid var(--line);
+  }
+
+  .card {
+    flex: 0 0 380px; width: 380px; text-align: left; font: inherit; color: inherit;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px; cursor: pointer;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card .title { display: flex; justify-content: space-between; gap: 10px; font-weight: bold; }
+  .card .mark { color: var(--dim); font-weight: normal; flex: none; }
+  .card .lead { color: var(--dim); font-size: 15px; margin-top: 2px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .text { display: none; margin-top: 6px; }
+  .card .text p { margin: 0 0 .7em; }
+  .card .text p:last-child { margin-bottom: 0; }
+  .node.open > .card { background: var(--open); border-color: var(--accent); cursor: default; }
+  .node.open > .card .title { cursor: pointer; }
+  .node.open > .card .lead { display: none; }
+  .node.open > .card .text { display: block; }
+  .node:not(.open) > .kids { display: none; }
+  .branch > .card .title { color: var(--accent); }
+
+  .error { color: var(--accent); }
+
+  @media (max-width: 900px) {
+    header { padding: 14px 14px 0; }
+    main { padding: 14px; }
+    .tree, .node { flex-direction: column; }
+    .root { position: static; flex: none; width: 100%; }
+    .card { flex: none; width: 100%; }
+    .kids { margin-left: 20px; margin-top: 10px; width: calc(100% - 20px); }
+    .tree > .kids::after, .node > .kids::after { display: none; }
+    .kids::before { top: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Сценарии v2.3 · замысел и каркас</h1>
+  <nav id="games"></nav>
+</header>
+<main id="map"></main>
+
+<script>
+const GAMES = [
+  ['pereklichka', 'Перекличка'],
+  ['posledniy-poezd', 'Последний поезд в 23:10'],
+  ['gospozha-arden', 'Госпожа Арден'],
+  ['nerukotvorny', 'Нерукотворный'],
+  ['kto-ugodno', 'Кто угодно'],
+  ['doch-groma', 'Дочь Грома'],
+  ['vygon', 'Выгон'],
+  ['privychki-ostayutsya', 'Привычки остаются'],
+  ['absolyutny-sluh', 'Абсолютный слух'],
+  ['nedelya-mozhet-tri', 'Неделя, может три'],
+];
+
+const nav = document.getElementById('games');
+const map = document.getElementById('map');
+const loaded = {};
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function firstSentence(text) {
+  const m = text.match(/^[\s\S]*?[.!?…](?=\s|$)/);
+  return (m ? m[0] : text).replace(/\s+/g, ' ');
+}
+
+function node(data, isBranch) {
+  const n = el('div', 'node' + (isBranch ? ' branch' : ''));
+  const card = el('div', 'card');
+  const title = el('div', 'title');
+  title.append(el('span', '', data.title));
+  const kidsCount = data.children.length;
+  const mark = el('span', 'mark', kidsCount ? '+' + kidsCount : '');
+  title.append(mark);
+  card.append(title, el('div', 'lead', firstSentence(data.text)));
+  const text = el('div', 'text');
+  for (const para of data.text.split(/\n\s*\n/)) text.append(el('p', '', para));
+  card.append(text);
+  n.append(card);
+
+  if (kidsCount) {
+    const kids = el('div', 'kids');
+    for (const child of data.children) kids.append(node(child, false));
+    n.append(kids);
+  }
+
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-expanded', 'false');
+  const toggle = () => {
+    const open = n.classList.toggle('open');
+    card.setAttribute('aria-expanded', String(open));
+    mark.textContent = kidsCount ? (open ? '−' : '+' + kidsCount) : '';
+  };
+  card.addEventListener('click', e => {
+    // an open card closes only by its title, so its text can be selected and read in peace
+    if (n.classList.contains('open') && !title.contains(e.target)) return;
+    toggle();
+  });
+  card.addEventListener('keydown', e => {
+    if (e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); }
+  });
+  return n;
+}
+
+function render(game) {
+  const tree = el('div', 'tree');
+  const root = el('div', 'root');
+  root.append(el('h2', '', game.title), el('p', '', game.tagline), el('p', 'source', game.source));
+  const full = el('a', '', 'Полный сценарий');
+  full.href = 'https://github.com/moood-me/works-008-scenario-fabric/blob/main/docs/scenarios-v2/v2.3/' + game.slug + '.md';
+  const fullLine = el('p', 'source');
+  fullLine.style.marginTop = '10px';
+  fullLine.append(full);
+  root.append(fullLine);
+  const kids = el('div', 'kids');
+  for (const b of game.branches) kids.append(node(b, true));
+  tree.append(root, kids);
+  map.replaceChildren(tree);
+}
+
+async function show(slug) {
+  for (const b of nav.children) b.setAttribute('aria-current', String(b.dataset.slug === slug));
+  if (!loaded[slug]) {
+    const r = await fetch('data/' + slug + '.json');
+    if (!r.ok) { map.replaceChildren(el('p', 'error', 'Этот сценарий ещё не разложен.')); return; }
+    loaded[slug] = await r.json();
+  }
+  render(loaded[slug]);
+  scrollTo({ left: 0 });
+}
+
+for (const [slug, title] of GAMES) {
+  const b = el('button', '', title);
+  b.dataset.slug = slug;
+  b.onclick = () => { location.hash = slug; };
+  nav.append(b);
+}
+
+function route() {
+  const slug = location.hash.slice(1);
+  show(GAMES.some(g => g[0] === slug) ? slug : GAMES[0][0]);
+}
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
